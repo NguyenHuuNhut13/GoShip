@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>GoShip Admin Portal — Trung tâm Điều hành Logistics Cloud</title>
+    <meta name="description" content="Hệ thống Quản trị & Điều phối Vận tải Thông minh GoShip Logistics kết nối thời gian thực với Cloud Firestore." />
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+      crossorigin=""
+    />
+    <script
+      src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+      integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+      crossorigin=""
+    ></script>
+    <style>
+      html, body { height: 100%; margin: 0; font-family: 'Inter', system-ui, -apple-system, sans-serif; }
+      #root { height: 100%; }
+      .leaflet-container { font-family: inherit; z-index: 1; }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

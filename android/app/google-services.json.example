@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "419361470707",
+    "project_id": "goship-145a0",
+    "storage_bucket": "goship-145a0.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:419361470707:android:d4dc08ce145c3134afdf86",
+        "android_client_info": {
+          "package_name": "vn.nks.goship.goship_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "YOUR_ANDROID_FIREBASE_API_KEY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
