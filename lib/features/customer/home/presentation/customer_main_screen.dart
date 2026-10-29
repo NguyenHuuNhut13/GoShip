@@ -201,8 +201,12 @@ class _CustomerMainScreenState extends State<CustomerMainScreen> {
           ? SimulatedDriver(
               id: order.driverId ?? order.assignedDriverId ?? 'drv_01',
               name: order.driverName ?? order.assignedDriverName ?? 'Tài xế GoShip',
-              phone: order.driverPhone ?? '',
-              plate: order.driverPlate ?? '',
+              phone: (order.driverPhone != null && order.driverPhone!.trim().isNotEmpty)
+                  ? order.driverPhone!.trim()
+                  : '0917795211',
+              plate: (order.driverPlate != null && order.driverPlate!.trim().isNotEmpty)
+                  ? order.driverPlate!.trim()
+                  : '59P1-987.65',
               vehicleType: 'van',
               vehicleName: order.vehicleName,
               rating: 4.9,

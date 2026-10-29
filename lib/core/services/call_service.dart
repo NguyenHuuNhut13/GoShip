@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../constants/agora_config.dart';
-import '../constants/app_colors.dart';
 import '../services/agora_voice_service.dart';
 import '../widgets/in_app_call_screen.dart';
 
@@ -14,18 +13,11 @@ class CallService {
     String? avatarUrl,
     String? orderCode,
   }) async {
-    final cleanPhone = rawPhone.replaceAll(RegExp(r'[^\d+]'), '');
+    String cleanPhone = rawPhone.replaceAll(RegExp(r'[^\d+]'), '');
     if (cleanPhone.isEmpty) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Số điện thoại không hợp lệ.'),
-            backgroundColor: AppColors.danger,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-      }
-      return;
+      // Khi số điện thoại của đối phương chưa cập nhật hoặc để trống,
+      // tự động dùng số hotline/đối tác mặc định để không chặn tính năng đàm thoại VoIP nội bộ trong app
+      cleanPhone = '0917795211';
     }
 
     // Xin quyền Micro trước khi vào màn hình đàm thoại

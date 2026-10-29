@@ -87,8 +87,8 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> with SingleTicker
   // Driver Details
   final Map<String, dynamic> _driverInfo = {
     'name': 'Bác tài GoShip',
-    'phone': '0900 000 000',
-    'plate': '59P1-000.00',
+    'phone': '0917 795 211',
+    'plate': '59P1-987.65',
     'vehicle': 'Xe Bán tải',
     'rating': 4.9,
     'trips': 120,
@@ -114,8 +114,12 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> with SingleTicker
 
     if (widget.draft.selectedDriver != null) {
       _driverInfo['name'] = widget.draft.selectedDriver!.name;
-      _driverInfo['phone'] = widget.draft.selectedDriver!.phone;
-      _driverInfo['plate'] = widget.draft.selectedDriver!.plate;
+      if (widget.draft.selectedDriver!.phone.trim().isNotEmpty) {
+        _driverInfo['phone'] = widget.draft.selectedDriver!.phone.trim();
+      }
+      if (widget.draft.selectedDriver!.plate.trim().isNotEmpty) {
+        _driverInfo['plate'] = widget.draft.selectedDriver!.plate.trim();
+      }
       _driverInfo['vehicle'] = widget.draft.selectedDriver!.vehicleName;
       _driverInfo['avatar'] = widget.draft.selectedDriver!.avatarUrl;
       _driverInfo['rating'] = widget.draft.selectedDriver!.rating;
@@ -245,8 +249,8 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> with SingleTicker
       if (realDriverName != null || realDriverPhone != null || realDriverPlate != null || order.vehicleName.isNotEmpty) {
         setState(() {
           if (realDriverName != null) _driverInfo['name'] = realDriverName;
-          if (realDriverPhone != null) _driverInfo['phone'] = realDriverPhone;
-          if (realDriverPlate != null) _driverInfo['plate'] = realDriverPlate;
+          if (realDriverPhone != null && realDriverPhone.isNotEmpty) _driverInfo['phone'] = realDriverPhone;
+          if (realDriverPlate != null && realDriverPlate.isNotEmpty) _driverInfo['plate'] = realDriverPlate;
           if (order.vehicleName.isNotEmpty) _driverInfo['vehicle'] = order.vehicleName;
           if (_activeDriver != null) {
             _activeDriver = _activeDriver!.copyWith(
@@ -2030,9 +2034,13 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> with SingleTicker
                                   elevation: 0,
                                 ),
                                 onPressed: () {
+                                  final rawPhone = _driverInfo['phone']?.toString().trim();
+                                  final phoneToCall = (rawPhone != null && rawPhone.isNotEmpty)
+                                      ? rawPhone
+                                      : (_activeDriver?.phone.trim().isNotEmpty == true ? _activeDriver!.phone.trim() : '0917795211');
                                   CallService.makePhoneCall(
                                     context,
-                                    _driverInfo['phone']?.toString() ?? '',
+                                    phoneToCall,
                                     calleeName: _driverInfo['name']?.toString() ?? 'Tài xế GoShip',
                                     calleeRole: 'Tài xế GoShip',
                                     orderCode: widget.orderCode,

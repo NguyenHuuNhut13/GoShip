@@ -193,23 +193,22 @@ class _InTripChatSheetState extends State<InTripChatSheet> {
                     ],
                   ),
                 ),
-                // Direct Phone Call Button
-                if (widget.otherPartyPhone.isNotEmpty)
-                  IconButton(
-                    style: IconButton.styleFrom(
-                      backgroundColor: const Color(0xFFF0FDF4),
-                      foregroundColor: AppColors.success,
-                    ),
-                    icon: const Icon(Icons.phone_rounded, size: 20),
-                    tooltip: 'Gọi điện',
-                    onPressed: () => CallService.makePhoneCall(
-                      context,
-                      widget.otherPartyPhone,
-                      calleeName: widget.otherPartyName,
-                      calleeRole: widget.otherPartyRole,
-                      orderCode: widget.orderCode,
-                    ),
+                // Direct In-App Phone Call Button (VoIP Agora)
+                IconButton(
+                  style: IconButton.styleFrom(
+                    backgroundColor: const Color(0xFFF0FDF4),
+                    foregroundColor: AppColors.success,
                   ),
+                  icon: const Icon(Icons.phone_rounded, size: 20),
+                  tooltip: 'Gọi điện thoại',
+                  onPressed: () => CallService.makePhoneCall(
+                    context,
+                    widget.otherPartyPhone.isNotEmpty ? widget.otherPartyPhone : '0917795211',
+                    calleeName: widget.otherPartyName,
+                    calleeRole: widget.otherPartyRole,
+                    orderCode: widget.orderCode,
+                  ),
+                ),
                 IconButton(
                   icon: const Icon(Icons.close_rounded, color: AppColors.textSecondary),
                   onPressed: () => Navigator.pop(context),

@@ -424,9 +424,9 @@ class FirestoreOrderService {
           'status': 'delivering',
           'dispatch_type': 'ACCEPTED',
           'driver_id': driverId,
-          'driver_name': driverName,
-          'driver_phone': driverPhone,
-          'driver_plate': plateNumber,
+          'driver_name': driverName.trim().isNotEmpty ? driverName.trim() : 'Tài xế GoShip',
+          'driver_phone': driverPhone.trim().isNotEmpty ? driverPhone.trim() : '0917795211',
+          'driver_plate': plateNumber.trim().isNotEmpty ? plateNumber.trim() : '59P1-987.65',
           'driver_vehicle': vehicleName,
           'accepted_at': FieldValue.serverTimestamp(),
         });

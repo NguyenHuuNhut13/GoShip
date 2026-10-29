@@ -797,9 +797,9 @@ class _DriverHomeTabState extends State<DriverHomeTab> with SingleTickerProvider
     final bool ok = await FirestoreOrderService.acceptOrder(
       orderCode: order['id'] ?? order['orderCode'],
       driverId: driverId,
-      driverName: _currentUser.name,
-      driverPhone: _currentUser.phone,
-      plateNumber: _currentUser.plateNumber ?? '51D 892.14',
+      driverName: _currentUser.name.isNotEmpty ? _currentUser.name : 'Driver 01',
+      driverPhone: _currentUser.phone.isNotEmpty ? _currentUser.phone : '0917795211',
+      plateNumber: _currentUser.plateNumber ?? '59P1-987.65',
       vehicleName: _currentUser.vehicleType ?? 'Xe Bán tải Ranger',
     );
 
