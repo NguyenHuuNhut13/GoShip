@@ -124,6 +124,42 @@ const DEFAULT_PAYOUTS: PayoutRequestItem[] = [
   },
 ];
 
+const DEFAULT_DRIVERS: DriverItem[] = [
+  {
+    id: '121',
+    docId: 'usr_012345678',
+    name: 'Nguyễn Hữu Nhựt',
+    phone: '012345678',
+    email: 'nguyenhuunhut1309@gmail.com',
+    vehicle: 'Xe Bán tải',
+    plate: '59P1-987.65',
+    rating: 4.9,
+    orders: 348,
+    status: 'active',
+    avatar: 'https://data.nks.vn/storage/users/202609071644337507.png',
+    joinDate: '2026',
+    revenue: 12500000,
+    cccd: '070204000284',
+    isCloud: true,
+  },
+  {
+    id: '139',
+    docId: 'usr_nks.driver01_gmail.com',
+    name: 'Driver 01',
+    phone: '0917795211',
+    email: 'nks.driver01@gmail.com',
+    vehicle: 'Xe Bán tải',
+    plate: '59P1-987.65',
+    rating: 4.9,
+    orders: 348,
+    status: 'active',
+    avatar: 'https://data.nks.vn/storage/users/default.png',
+    joinDate: '2026',
+    revenue: 2005240,
+    isCloud: true,
+  },
+];
+
 export interface TrendPoint {
   label: string;
   shortLabel: string;
@@ -209,9 +245,9 @@ function computeTrendData(orders: OrderItem[], range: 'week' | 'month' | 'year')
 const fmtVND = (n: number) =>
   new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(n);
 
-function normalizeOrderStatus(raw?: string): 'in_transit' | 'completed' | 'pending' | 'cancelled' {
-  const s = (raw || '').toLowerCase().trim();
-  if (s === 'completed' || s === 'delivered' || s.includes('hoàn thành') || s.includes('đã giao')) return 'completed';
+function normalizeOrderStatus(raw?: any): 'in_transit' | 'completed' | 'pending' | 'cancelled' {
+  const s = String(raw || '').toLowerCase().trim();
+  if (s === 'completed' || s === 'delivered' || s.includes('hoàn thành') || s.includes('đã giao') || s === 'done') return 'completed';
   if (s === 'cancelled' || s === 'canceled' || s.includes('hủy')) return 'cancelled';
   if (s === 'accepted' || s === 'picked_up' || s === 'in_transit' || s === 'delivering' || s.includes('đang giao') || s.includes('đã nhận')) return 'in_transit';
   return 'pending';
@@ -900,7 +936,7 @@ function FleetMapView({ vehicles }: { vehicles: MapVehicleItem[] }) {
 // ─── 4. DRIVERS VIEW (WITH CLOUD APPROVAL, LOCKING & KYC VIEWER) ─────────────
 
 function DriversView({
-  drivers,
+  drivers = [],
   onUpdateDriverStatus,
 }: {
   drivers: DriverItem[];
@@ -910,15 +946,18 @@ function DriversView({
   const [search, setSearch] = useState('');
   const [selectedDriverKyc, setSelectedDriverKyc] = useState<DriverItem | null>(null);
 
-  const pendingCount = drivers.filter(d => d.status === 'pending_approval').length;
+  const safeDrivers = Array.isArray(drivers) ? drivers : [];
+  const pendingCount = safeDrivers.filter(d => d.status === 'pending_approval').length;
 
-  const filtered = drivers.filter(d => {
+  const filtered = safeDrivers.filter(d => {
     const matchStatus = statusFilter === 'all' || d.status === statusFilter;
-    const q = search.toLowerCase();
+    const q = (search || '').toLowerCase().trim();
+    if (!q) return matchStatus;
     const matchSearch =
-      d.name.toLowerCase().includes(q) ||
-      d.phone.includes(search) ||
-      d.plate.toLowerCase().includes(q);
+      String(d.name || '').toLowerCase().includes(q) ||
+      String(d.phone || '').includes(q) ||
+      String(d.plate || '').toLowerCase().includes(q) ||
+      String(d.id || '').toLowerCase().includes(q);
     return matchStatus && matchSearch;
   });
 
@@ -942,10 +981,10 @@ function DriversView({
       <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap gap-1.5">
           {[
-            { key: 'all', label: `Tất cả (${drivers.length})` },
-            { key: 'active', label: `Hoạt động (${drivers.filter(d => d.status === 'active').length})` },
+            { key: 'all', label: `Tất cả (${safeDrivers.length})` },
+            { key: 'active', label: `Hoạt động (${safeDrivers.filter(d => d.status === 'active').length})` },
             { key: 'pending_approval', label: `Chờ duyệt (${pendingCount})` },
-            { key: 'locked', label: `Bị khóa (${drivers.filter(d => d.status === 'locked').length})` },
+            { key: 'locked', label: `Bị khóa (${safeDrivers.filter(d => d.status === 'locked').length})` },
           ].map(t => (
             <button
               key={t.key}
@@ -1025,7 +1064,7 @@ function DriversView({
                   <td className="px-4 py-4 text-center">
                     <span className="inline-flex items-center gap-1 font-semibold text-amber-600">
                       <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
-                      {driver.rating.toFixed(1)}
+                      {Number(driver.rating ?? 5.0).toFixed(1)}
                     </span>
                   </td>
                   <td className="px-4 py-4 text-center">
@@ -1463,7 +1502,7 @@ export default function App() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
   const [orders, setOrders] = useState<OrderItem[]>([]);
-  const [drivers, setDrivers] = useState<DriverItem[]>([]);
+  const [drivers, setDrivers] = useState<DriverItem[]>(DEFAULT_DRIVERS);
   const [customers, setCustomers] = useState<CustomerItem[]>([]);
   const [vehicles, setVehicles] = useState<MapVehicleItem[]>([]);
   const [pricing, setPricing] = useState<Record<string, PricingRule>>(DEFAULT_PRICING);
@@ -1498,370 +1537,432 @@ export default function App() {
       ]);
 
       // 1. Real Orders from Cloud Firestore
-      if (cloudOrders.length > 0) {
-        const mappedOrders: OrderItem[] = cloudOrders.map((d) => {
-          const code = String(d.orderCode || d.order_id || d._docId || '#GS');
-          const displayId = code.startsWith('#') ? code : `#${code}`;
-          const epod = Array.isArray(d.epod_photos) && d.epod_photos.length > 0
-            ? String(d.epod_photos[0])
-            : (d.epod_photo_url ? String(d.epod_photo_url) : null);
+      try {
+        if (cloudOrders.length > 0) {
+          const mappedOrders: OrderItem[] = cloudOrders.map((d) => {
+            const code = String(d.orderCode || d.order_id || d._docId || '#GS');
+            const displayId = code.startsWith('#') ? code : `#${code}`;
+            const epod = Array.isArray(d.epod_photos) && d.epod_photos.length > 0
+              ? String(d.epod_photos[0])
+              : (d.epod_photo_url ? String(d.epod_photo_url) : null);
 
-          let dropoffStr = 'Điểm giao hàng';
-          if (Array.isArray(d.dropoff_addresses) && d.dropoff_addresses.length > 0) {
-            dropoffStr = d.dropoff_addresses.join(' ➔ ');
-          } else if (d.dropoff_address || d.dropoff) {
-            dropoffStr = String(d.dropoff_address || d.dropoff);
-          }
+            let dropoffStr = 'Điểm giao hàng';
+            if (Array.isArray(d.dropoff_addresses) && d.dropoff_addresses.length > 0) {
+              dropoffStr = d.dropoff_addresses.join(' ➔ ');
+            } else if (d.dropoff_address || d.dropoff) {
+              dropoffStr = String(d.dropoff_address || d.dropoff);
+            }
 
-          let orderTime = 'Hôm nay';
-          let orderDate = 'Hôm nay';
-          if (d.created_at_millis) {
-            const dt = new Date(Number(d.created_at_millis));
-            orderTime = dt.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
-            orderDate = dt.toLocaleDateString('vi-VN');
-          } else if (d._UpdatedAt) {
-            const dt = new Date(d._UpdatedAt);
-            orderTime = dt.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
-            orderDate = dt.toLocaleDateString('vi-VN');
-          }
+            let orderTime = 'Hôm nay';
+            let orderDate = 'Hôm nay';
+            if (d.created_at_millis) {
+              const dt = new Date(Number(d.created_at_millis));
+              orderTime = dt.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+              orderDate = dt.toLocaleDateString('vi-VN');
+            } else if (d._UpdatedAt) {
+              const dt = new Date(d._UpdatedAt);
+              orderTime = dt.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+              orderDate = dt.toLocaleDateString('vi-VN');
+            }
 
-          return {
-            id: displayId,
-            docId: d._docId,
-            customer: String(d.sender_name || d.customer_name || 'Khách hàng GoShip'),
-            customerPhone: String(d.sender_phone || d.customer_phone || '---'),
-            driver: String(d.assigned_driver_name || d.driver_name || 'Chưa nhận đơn'),
-            driverPhone: String(d.driver_phone || d.assigned_driver_phone || '---'),
-            vehicle: String(d.vehicle_name || d.vehicle_type || 'Xe Bán tải'),
-            pickup: String(d.pickup_address || d.pickup || 'Điểm lấy hàng'),
-            dropoff: dropoffStr,
-            fee: Number(d.total_fee ?? d.total_price ?? d.original_fee ?? d.fee ?? 0),
-            discount: Number(d.discount_amount ?? 0),
-            paymentMethod: String(d.payment_method || 'Tiền mặt (COD)'),
-            status: normalizeOrderStatus(d.status),
-            time: orderTime,
-            date: orderDate,
-            podImg: epod,
-            isCloud: true,
-          };
-        });
-        mappedOrders.sort((a, b) => b.id.localeCompare(a.id));
-        setOrders(mappedOrders);
-      } else {
-        setOrders([]);
-      }
-
-      // 2. Real Fleet Vehicles from `driver_tracking`
-      if (cloudTracking.length > 0) {
-        const onlineCloud = cloudTracking
-          .filter(t => t.is_online !== false)
-          .map((t): MapVehicleItem => {
-            const activeOrd = t.active_order_id && t.active_order_id !== 'null' ? String(t.active_order_id) : undefined;
             return {
-              id: t._docId,
-              driver: String(t.driver_name || 'Tài xế GoShip'),
-              phone: String(t.phone || '---'),
-              vehicle: String(t.vehicle_type || t.vehicle_name || 'Xe Bán tải'),
-              status: activeOrd ? 'delivering' : 'idle',
-              lat: Number(t.lat ?? t.latitude ?? 10.7769),
-              lng: Number(t.lng ?? t.longitude ?? 106.7009),
-              plate: String(t.plate_number || t.plate || '---'),
-              activeOrder: activeOrd,
+              id: displayId,
+              docId: d._docId,
+              customer: String(d.sender_name || d.customer_name || 'Khách hàng GoShip'),
+              customerPhone: String(d.sender_phone || d.customer_phone || '---'),
+              driver: String(d.assigned_driver_name || d.driver_name || 'Chưa nhận đơn'),
+              driverPhone: String(d.driver_phone || d.assigned_driver_phone || '---'),
+              vehicle: String(d.vehicle_name || d.vehicle_type || 'Xe Bán tải'),
+              pickup: String(d.pickup_address || d.pickup || 'Điểm lấy hàng'),
+              dropoff: dropoffStr,
+              fee: Number(d.total_fee ?? d.total_price ?? d.original_fee ?? d.fee ?? 0),
+              discount: Number(d.discount_amount ?? 0),
+              paymentMethod: String(d.payment_method || 'Tiền mặt (COD)'),
+              status: normalizeOrderStatus(d.status),
+              time: orderTime,
+              date: orderDate,
+              podImg: epod,
               isCloud: true,
             };
           });
-        setVehicles(onlineCloud);
-      } else {
-        setVehicles([]);
-      }
-
-      // 3. Real Drivers & Customers from `users` + `driver_tracking`
-      const driverMap = new Map<string, DriverItem>();
-      const customerList: CustomerItem[] = [];
-
-      if (cloudUsers.length > 0) {
-        cloudUsers.forEach((u) => {
-          const role = String(u.role || '').toLowerCase();
-          const isDriver = role === 'driver' ||
-            String(u._docId).startsWith('drv_') ||
-            Boolean(u.plateNumber) ||
-            Boolean(u.vehicleType) ||
-            String(u.name || '').toLowerCase().includes('driver');
-
-          const rawSt = String(u.account_status || u.accountStatus || 'active');
-          const st: 'active' | 'locked' | 'pending_approval' =
-            rawSt === 'locked' ? 'locked' : rawSt === 'pending_approval' ? 'pending_approval' : 'active';
-
-          if (isDriver) {
-            const driverId = String(u.id || u._docId);
-            driverMap.set(driverId, {
-              id: driverId,
-              docId: u._docId,
-              name: String(u.name || 'Đối tác Tài xế'),
-              phone: String(u.phone || '---'),
-              email: String(u.email || 'driver@goship.vn'),
-              vehicle: String(u.vehicleType || 'Xe Bán tải'),
-              plate: String(u.plateNumber || '---'),
-              rating: Number(u.rating ?? 5.0),
-              orders: Number(u.totalOrders ?? 0),
-              status: st,
-              avatar: String(u.avatarUrl || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=120'),
-              joinDate: '2026',
-              revenue: 0,
-              cccd: u.cccd ? String(u.cccd) : undefined,
-              cccdFrontUrl: u.cccdFrontUrl ? String(u.cccdFrontUrl) : undefined,
-              cccdBackUrl: u.cccdBackUrl ? String(u.cccdBackUrl) : undefined,
-              isCloud: true,
-            });
-          } else {
-            // Customer Record
-            const custOrders = cloudOrders.filter(o =>
-              o.sender_phone === u.phone ||
-              o.customer_phone === u.phone ||
-              o.customer_name === u.name ||
-              o.sender_name === u.name
-            );
-            const totalSpent = custOrders
-              .filter(o => normalizeOrderStatus(o.status) === 'completed')
-              .reduce((sum, o) => sum + Number(o.total_fee ?? o.fee ?? 0), 0);
-
-            customerList.push({
-              id: String(u.id || u._docId),
-              docId: u._docId,
-              name: String(u.name || u.displayName || 'Khách hàng GoShip'),
-              phone: String(u.phone || '---'),
-              email: String(u.email || 'customer@goship.vn'),
-              status: rawSt === 'locked' ? 'locked' : 'active',
-              totalOrders: custOrders.length,
-              totalSpent,
-              avatar: String(u.avatarUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120'),
-              joinDate: u._UpdatedAt ? new Date(u._UpdatedAt).toLocaleDateString('vi-VN') : '2026',
-              address: String(u.address || ''),
-              isCloud: true,
-            });
-          }
-        });
-      }
-
-      // Merge drivers from tracking if not in users
-      if (cloudTracking.length > 0) {
-        cloudTracking.forEach((t) => {
-          const trackId = String(t.driver_id || t._docId);
-          if (!driverMap.has(trackId)) {
-            driverMap.set(trackId, {
-              id: trackId,
-              docId: t._docId,
-              name: String(t.driver_name || 'Tài xế GoShip'),
-              phone: String(t.phone || '---'),
-              email: 'driver@goship.vn',
-              vehicle: String(t.vehicle_type || t.vehicle_name || 'Xe Bán tải'),
-              plate: String(t.plate_number || t.plate || '---'),
-              rating: 5.0,
-              orders: 0,
-              status: t.is_online ? 'active' : 'locked',
-              avatar: 'https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?w=120',
-              joinDate: '2026',
-              revenue: 0,
-              isCloud: true,
-            });
-          }
-        });
-      }
-
-      setDrivers(Array.from(driverMap.values()));
-
-      // Fallback customer if none found
-      if (customerList.length > 0) {
-        setCustomers(customerList);
-      } else {
-        setCustomers([
-          {
-            id: 'cust_01',
-            docId: 'usr_cust_01',
-            name: 'Nguyễn Văn An',
-            phone: '0908123456',
-            email: 'an.nguyen@goship.vn',
-            status: 'active',
-            totalOrders: 2,
-            totalSpent: 350000,
-            avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120',
-            joinDate: '12/10/2026',
-            isCloud: false,
-          },
-        ]);
-      }
-
-      // 4. Real Dynamic Pricing from `pricing_config/default`
-      if (cloudPricing) {
-        const mergedPricing: Record<string, PricingRule> = { ...DEFAULT_PRICING };
-        for (const key of Object.keys(DEFAULT_PRICING)) {
-          const r = cloudPricing[key];
-          if (r && typeof r === 'object') {
-            mergedPricing[key] = {
-              ...DEFAULT_PRICING[key],
-              base: Number(r.base ?? r.baseFee ?? DEFAULT_PRICING[key].base),
-              perKm: Number(r.perKm ?? r.perKmFee ?? DEFAULT_PRICING[key].perKm),
-              peak: Number(r.peak ?? r.peakMultiplier ?? DEFAULT_PRICING[key].peak),
-              wait: Number(r.wait ?? r.waitFee ?? DEFAULT_PRICING[key].wait),
-              min: Number(r.min ?? r.minFee ?? DEFAULT_PRICING[key].min),
-              isPeakActive: Boolean(r.isPeakActive),
-            };
-          }
+          mappedOrders.sort((a, b) => b.id.localeCompare(a.id));
+          setOrders(mappedOrders);
+        } else {
+          setOrders([]);
         }
-        setPricing(mergedPricing);
+      } catch (err) {
+        console.error('[GoShip Sync] Error parsing orders:', err);
       }
 
-      // 5. Real Transactions with Correct Accounting (No double counting for COD!)
-      const realTxList: TransactionItem[] = [];
-      if (cloudWallets.length > 0) {
-        cloudWallets.forEach((w) => {
-          const driverName = String(w.driver_name || w._docId);
-          const walletBal = Number(w.wallet_balance ?? 0);
-          if (Array.isArray(w.transactions)) {
-            w.transactions.forEach((t: any, idx: number) => {
-              if (t && typeof t === 'object') {
-                const title = String(t.title || 'Giao dịch ví');
-                const rawAmt = String(t.amount || '0').replace(/[^\d-]/g, '');
-                const numericAmt = parseInt(rawAmt, 10) || 0;
-                const isPos = t.isPositive === true || String(t.amount || '').startsWith('+');
-                const signedAmt = isPos ? Math.abs(numericAmt) : -Math.abs(numericAmt);
-                let type: 'deposit' | 'withdraw' | 'commission' | 'refund' = 'deposit';
-                const lower = title.toLowerCase();
-                if (lower.includes('rút')) type = 'withdraw';
-                else if (lower.includes('hoa hồng') || lower.includes('khấu trừ')) type = 'commission';
-                realTxList.push({
-                  id: `CLD-${w._docId.slice(0, 4).toUpperCase()}-${idx + 1}`,
-                  driver: driverName,
-                  driverId: w._docId,
-                  type,
-                  amount: signedAmt,
-                  balance: walletBal,
-                  time: String(t.time || 'Gần đây'),
-                  status: 'completed',
-                  note: title,
-                  isCloud: true,
-                });
-              }
+      // 2. Real Fleet Vehicles from `driver_tracking`
+      try {
+        if (cloudTracking.length > 0) {
+          const onlineCloud = cloudTracking
+            .filter(t => t.is_online !== false)
+            .map((t): MapVehicleItem => {
+              const activeOrd = t.active_order_id && t.active_order_id !== 'null' ? String(t.active_order_id) : undefined;
+              return {
+                id: t._docId,
+                driver: String(t.driver_name || 'Tài xế GoShip'),
+                phone: String(t.phone || '---'),
+                vehicle: String(t.vehicle_type || t.vehicle_name || 'Xe Bán tải'),
+                status: activeOrd ? 'delivering' : 'idle',
+                lat: Number(t.lat ?? t.latitude ?? 10.7769),
+                lng: Number(t.lng ?? t.longitude ?? 106.7009),
+                plate: String(t.plate_number || t.plate || '---'),
+                activeOrder: activeOrd,
+                isCloud: true,
+              };
             });
-          }
-        });
+          setVehicles(onlineCloud);
+        } else {
+          setVehicles([]);
+        }
+      } catch (err) {
+        console.error('[GoShip Sync] Error parsing vehicles:', err);
       }
 
-      if (cloudOrders.length > 0) {
-        cloudOrders.forEach((o) => {
-          const fee = Number(o.total_fee ?? o.total_price ?? o.fee ?? 0);
-          if (normalizeOrderStatus(o.status) === 'completed' && fee > 0) {
-            const orderCode = String(o.orderCode || o.order_id || o._docId);
-            const driverName = String(o.assigned_driver_name || o.driver_name || 'Tài xế GoShip');
-            const comm = Math.round(fee * 0.15);
-            const net = fee - comm;
-            const isCod = String(o.payment_method || '').toLowerCase().includes('cod') ||
-                          String(o.payment_method || '').toLowerCase().includes('tiền mặt');
+      // 3. Real Drivers & Customers from `users` + `driver_tracking` + `driver_wallets`
+      try {
+        const driverMap = new Map<string, DriverItem>();
 
-            // Ghi nhận khấu trừ 15% hoa hồng sàn
-            realTxList.push({
-              id: `TXN-${orderCode}-COMM`,
-              driver: driverName,
-              driverId: String(o.assigned_driver_id || 'DRV'),
-              type: 'commission',
-              amount: -comm,
-              balance: 0,
-              time: o._UpdatedAt ? new Date(o._UpdatedAt).toLocaleString('vi-VN') : 'Gần đây',
-              status: 'completed',
-              note: `Khấu trừ 15% hoa hồng đơn ${orderCode} (${isCod ? 'Thu tiền mặt COD' : 'Trả trước'})`,
-              isCloud: true,
-            });
+        // Guaranteed baseline from DEFAULT_DRIVERS
+        DEFAULT_DRIVERS.forEach(d => driverMap.set(d.id, { ...d }));
 
-            // CHỈ cộng 85% cước vào ví tài xế khi khách thanh toán điện tử (Non-COD)
-            // Đơn COD: Tài xế đã cầm trọn tiền mặt, không cộng số dư ví để tránh nhận tiền 2 lần!
-            if (!isCod) {
-              realTxList.push({
-                id: `TXN-${orderCode}-EARN`,
-                driver: driverName,
-                driverId: String(o.assigned_driver_id || 'DRV'),
-                type: 'deposit',
-                amount: net,
-                balance: net,
-                time: o._UpdatedAt ? new Date(o._UpdatedAt).toLocaleString('vi-VN') : 'Gần đây',
-                status: 'completed',
-                note: `Giải ngân cước chuyến đi đơn ${orderCode} (Thanh toán điện tử 85%)`,
+        const customerList: CustomerItem[] = [];
+
+        if (cloudUsers.length > 0) {
+          cloudUsers.forEach((u) => {
+            const role = String(u.role || '').toLowerCase();
+            const isDriver = role === 'driver' ||
+              String(u._docId || '').startsWith('drv_') ||
+              Boolean(u.plateNumber) ||
+              Boolean(u.vehicleType) ||
+              String(u.name || '').toLowerCase().includes('driver');
+
+            const rawSt = String(u.account_status || u.accountStatus || 'active');
+            const st: 'active' | 'locked' | 'pending_approval' =
+              rawSt === 'locked' ? 'locked' : rawSt === 'pending_approval' ? 'pending_approval' : 'active';
+
+            if (isDriver) {
+              const driverId = String(u.id || u._docId || '121');
+              const existing = driverMap.get(driverId);
+              driverMap.set(driverId, {
+                id: driverId,
+                docId: u._docId || (existing?.docId ?? driverId),
+                name: String(u.name || existing?.name || 'Đối tác Tài xế'),
+                phone: String(u.phone || existing?.phone || '0917795211'),
+                email: String(u.email || existing?.email || 'driver@goship.vn'),
+                vehicle: String(u.vehicleType || existing?.vehicle || 'Xe Bán tải'),
+                plate: String(u.plateNumber || existing?.plate || '59P1-987.65'),
+                rating: Number(u.rating ?? existing?.rating ?? 5.0),
+                orders: Number(u.totalOrders ?? existing?.orders ?? 0),
+                status: st,
+                avatar: String(u.avatarUrl || existing?.avatar || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=120'),
+                joinDate: '2026',
+                revenue: Number(u.revenue ?? existing?.revenue ?? 0),
+                cccd: u.cccd ? String(u.cccd) : existing?.cccd,
+                cccdFrontUrl: u.cccdFrontUrl ? String(u.cccdFrontUrl) : existing?.cccdFrontUrl,
+                cccdBackUrl: u.cccdBackUrl ? String(u.cccdBackUrl) : existing?.cccdBackUrl,
+                isCloud: true,
+              });
+            } else {
+              // Customer Record
+              const custOrders = cloudOrders.filter(o =>
+                (u.phone && (o.sender_phone === u.phone || o.customer_phone === u.phone)) ||
+                (u.name && (o.customer_name === u.name || o.sender_name === u.name))
+              );
+              const totalSpent = custOrders
+                .filter(o => normalizeOrderStatus(o.status) === 'completed')
+                .reduce((sum, o) => sum + Number(o.total_fee ?? o.fee ?? 0), 0);
+
+              customerList.push({
+                id: String(u.id || u._docId),
+                docId: u._docId,
+                name: String(u.name || u.displayName || 'Khách hàng GoShip'),
+                phone: String(u.phone || '---'),
+                email: String(u.email || 'customer@goship.vn'),
+                status: rawSt === 'locked' ? 'locked' : 'active',
+                totalOrders: custOrders.length,
+                totalSpent,
+                avatar: String(u.avatarUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120'),
+                joinDate: u._UpdatedAt ? new Date(u._UpdatedAt).toLocaleDateString('vi-VN') : '2026',
+                address: String(u.address || ''),
                 isCloud: true,
               });
             }
-          }
-        });
+          });
+        }
+
+        // Live tracking GPS integration
+        if (cloudTracking.length > 0) {
+          cloudTracking.forEach((t) => {
+            const trackId = String(t.driver_id || t._docId || '');
+            if (!trackId) return;
+            const existing = driverMap.get(trackId);
+            if (existing) {
+              driverMap.set(trackId, {
+                ...existing,
+                name: t.driver_name ? String(t.driver_name) : existing.name,
+                phone: (t.phone && String(t.phone).trim()) ? String(t.phone) : existing.phone,
+                vehicle: (t.vehicle_type || t.vehicle_name) ? String(t.vehicle_type || t.vehicle_name) : existing.vehicle,
+                plate: (t.plate_number || t.plate) ? String(t.plate_number || t.plate) : existing.plate,
+                status: t.is_online !== false ? 'active' : existing.status,
+              });
+            } else {
+              driverMap.set(trackId, {
+                id: trackId,
+                docId: t._docId || trackId,
+                name: String(t.driver_name || 'Tài xế GoShip'),
+                phone: String(t.phone || '0917795211'),
+                email: 'driver@goship.vn',
+                vehicle: String(t.vehicle_type || t.vehicle_name || 'Xe Bán tải'),
+                plate: String(t.plate_number || t.plate || '59P1-987.65'),
+                rating: 5.0,
+                orders: 0,
+                status: t.is_online !== false ? 'active' : 'locked',
+                avatar: String(t.avatar_url || 'https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?w=120'),
+                joinDate: '2026',
+                revenue: 0,
+                isCloud: true,
+              });
+            }
+          });
+        }
+
+        // Wallet balance integration
+        if (cloudWallets.length > 0) {
+          cloudWallets.forEach((w) => {
+            const wId = String(w._docId || w.driver_id || '');
+            if (driverMap.has(wId)) {
+              const d = driverMap.get(wId)!;
+              driverMap.set(wId, {
+                ...d,
+                revenue: Number(w.wallet_balance ?? w.deposit_balance ?? d.revenue ?? 0),
+              });
+            }
+          });
+        }
+
+        setDrivers(Array.from(driverMap.values()));
+
+        // Fallback customer if none found
+        if (customerList.length > 0) {
+          setCustomers(customerList);
+        } else {
+          setCustomers([
+            {
+              id: 'cust_01',
+              docId: 'usr_cust_01',
+              name: 'Nguyễn Văn An',
+              phone: '0908123456',
+              email: 'an.nguyen@goship.vn',
+              status: 'active',
+              totalOrders: 2,
+              totalSpent: 350000,
+              avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120',
+              joinDate: '12/10/2026',
+              isCloud: false,
+            },
+          ]);
+        }
+      } catch (err) {
+        console.error('[GoShip Sync] Error parsing drivers & customers:', err);
       }
 
-      setTransactions(realTxList.reverse());
+      // 4. Real Dynamic Pricing from `pricing_config/default`
+      try {
+        if (cloudPricing) {
+          const mergedPricing: Record<string, PricingRule> = { ...DEFAULT_PRICING };
+          for (const key of Object.keys(DEFAULT_PRICING)) {
+            const r = cloudPricing[key];
+            if (r && typeof r === 'object') {
+              mergedPricing[key] = {
+                ...DEFAULT_PRICING[key],
+                base: Number(r.base ?? r.baseFee ?? DEFAULT_PRICING[key].base),
+                perKm: Number(r.perKm ?? r.perKmFee ?? DEFAULT_PRICING[key].perKm),
+                peak: Number(r.peak ?? r.peakMultiplier ?? DEFAULT_PRICING[key].peak),
+                wait: Number(r.wait ?? r.waitFee ?? DEFAULT_PRICING[key].wait),
+                min: Number(r.min ?? r.minFee ?? DEFAULT_PRICING[key].min),
+                isPeakActive: Boolean(r.isPeakActive),
+              };
+            }
+          }
+          setPricing(mergedPricing);
+        }
+      } catch (err) {
+        console.error('[GoShip Sync] Error parsing pricing:', err);
+      }
+
+      // 5. Real Transactions with Correct Accounting (No double counting for COD!)
+      try {
+        const realTxList: TransactionItem[] = [];
+        if (cloudWallets.length > 0) {
+          cloudWallets.forEach((w) => {
+            const driverName = String(w.driver_name || w._docId);
+            const walletBal = Number(w.wallet_balance ?? 0);
+            if (Array.isArray(w.transactions)) {
+              w.transactions.forEach((t: any, idx: number) => {
+                if (t && typeof t === 'object') {
+                  const title = String(t.title || 'Giao dịch ví');
+                  const rawAmt = String(t.amount || '0').replace(/[^\d-]/g, '');
+                  const numericAmt = parseInt(rawAmt, 10) || 0;
+                  const isPos = t.isPositive === true || String(t.amount || '').startsWith('+');
+                  const signedAmt = isPos ? Math.abs(numericAmt) : -Math.abs(numericAmt);
+                  let type: 'deposit' | 'withdraw' | 'commission' | 'refund' = 'deposit';
+                  const lower = title.toLowerCase();
+                  if (lower.includes('rút')) type = 'withdraw';
+                  else if (lower.includes('hoa hồng') || lower.includes('khấu trừ')) type = 'commission';
+                  realTxList.push({
+                    id: `CLD-${w._docId.slice(0, 4).toUpperCase()}-${idx + 1}`,
+                    driver: driverName,
+                    driverId: w._docId,
+                    type,
+                    amount: signedAmt,
+                    balance: walletBal,
+                    time: String(t.time || 'Gần đây'),
+                    status: 'completed',
+                    note: title,
+                    isCloud: true,
+                  });
+                }
+              });
+            }
+          });
+        }
+
+        if (cloudOrders.length > 0) {
+          cloudOrders.forEach((o) => {
+            const fee = Number(o.total_fee ?? o.total_price ?? o.fee ?? 0);
+            if (normalizeOrderStatus(o.status) === 'completed' && fee > 0) {
+              const orderCode = String(o.orderCode || o.order_id || o._docId);
+              const driverName = String(o.assigned_driver_name || o.driver_name || 'Tài xế GoShip');
+              const comm = Math.round(fee * 0.15);
+              const net = fee - comm;
+              const isCod = String(o.payment_method || '').toLowerCase().includes('cod') ||
+                            String(o.payment_method || '').toLowerCase().includes('tiền mặt');
+
+              // Ghi nhận khấu trừ 15% hoa hồng sàn
+              realTxList.push({
+                id: `TXN-${orderCode}-COMM`,
+                driver: driverName,
+                driverId: String(o.assigned_driver_id || 'DRV'),
+                type: 'commission',
+                amount: -comm,
+                balance: 0,
+                time: o._UpdatedAt ? new Date(o._UpdatedAt).toLocaleString('vi-VN') : 'Gần đây',
+                status: 'completed',
+                note: `Khấu trừ 15% hoa hồng đơn ${orderCode} (${isCod ? 'Thu tiền mặt COD' : 'Trả trước'})`,
+                isCloud: true,
+              });
+
+              // CHỈ cộng 85% cước vào ví tài xế khi khách thanh toán điện tử (Non-COD)
+              if (!isCod) {
+                realTxList.push({
+                  id: `TXN-${orderCode}-EARN`,
+                  driver: driverName,
+                  driverId: String(o.assigned_driver_id || 'DRV'),
+                  type: 'deposit',
+                  amount: net,
+                  balance: net,
+                  time: o._UpdatedAt ? new Date(o._UpdatedAt).toLocaleString('vi-VN') : 'Gần đây',
+                  status: 'completed',
+                  note: `Giải ngân cước chuyến đi đơn ${orderCode} (Thanh toán điện tử 85%)`,
+                  isCloud: true,
+                });
+              }
+            }
+          });
+        }
+
+        setTransactions(realTxList.reverse());
+      } catch (err) {
+        console.error('[GoShip Sync] Error parsing transactions:', err);
+      }
 
       // 6. Vouchers / Promotions
-      if (cloudPromotions.length > 0) {
-        setVouchers(
-          cloudPromotions.map((p) => ({
-            id: p._docId,
-            docId: p._docId,
-            code: String(p.code || 'PROMO').toUpperCase(),
-            discountPercent: p.discountPercent !== undefined ? Number(p.discountPercent) : undefined,
-            discountAmount: p.discountAmount !== undefined ? Number(p.discountAmount) : undefined,
-            maxDiscount: Number(p.maxDiscount ?? 50000),
-            minOrder: Number(p.minOrder ?? 50000),
-            usageLimit: Number(p.usageLimit ?? 100),
-            usedCount: Number(p.usedCount ?? 0),
-            expiryDate: String(p.expiryDate ?? '2026-12-31'),
-            isActive: p.isActive !== false,
-            description: String(p.description || ''),
-            isCloud: true,
-          }))
-        );
-      } else {
-        setVouchers(DEFAULT_VOUCHERS);
+      try {
+        if (cloudPromotions.length > 0) {
+          setVouchers(
+            cloudPromotions.map((p) => ({
+              id: p._docId,
+              docId: p._docId,
+              code: String(p.code || 'PROMO').toUpperCase(),
+              discountPercent: p.discountPercent !== undefined ? Number(p.discountPercent) : undefined,
+              discountAmount: p.discountAmount !== undefined ? Number(p.discountAmount) : undefined,
+              maxDiscount: Number(p.maxDiscount ?? 50000),
+              minOrder: Number(p.minOrder ?? 50000),
+              usageLimit: Number(p.usageLimit ?? 100),
+              usedCount: Number(p.usedCount ?? 0),
+              expiryDate: String(p.expiryDate ?? '2026-12-31'),
+              isActive: p.isActive !== false,
+              description: String(p.description || ''),
+              isCloud: true,
+            }))
+          );
+        } else {
+          setVouchers(DEFAULT_VOUCHERS);
+        }
+      } catch (err) {
+        console.error('[GoShip Sync] Error parsing vouchers:', err);
       }
 
       // 7. Incidents / SOS Hub
-      if (cloudIncidents.length > 0) {
-        setIncidents(
-          cloudIncidents.map((i) => ({
-            id: String(i.id || i._docId),
-            docId: i._docId,
-            orderId: String(i.orderId || i.order_id || '#GS-000'),
-            driverName: String(i.driverName || i.driver_name || 'Tài xế GoShip'),
-            customerName: String(i.customerName || i.customer_name || 'Khách hàng'),
-            type: (i.type || 'sos') as any,
-            status: (i.status || 'pending') as any,
-            description: String(i.description || 'Sự cố chuyến đi'),
-            time: String(i.time || 'Gần đây'),
-            location: i.location ? String(i.location) : undefined,
-            severity: (i.severity || 'high') as any,
-            isCloud: true,
-          }))
-        );
-      } else {
-        setIncidents(DEFAULT_INCIDENTS);
+      try {
+        if (cloudIncidents.length > 0) {
+          setIncidents(
+            cloudIncidents.map((i) => ({
+              id: String(i.id || i._docId),
+              docId: i._docId,
+              orderId: String(i.orderId || i.order_id || '#GS-000'),
+              driverName: String(i.driverName || i.driver_name || 'Tài xế GoShip'),
+              customerName: String(i.customerName || i.customer_name || 'Khách hàng'),
+              type: (i.type || 'sos') as any,
+              status: (i.status || 'pending') as any,
+              description: String(i.description || 'Sự cố chuyến đi'),
+              time: String(i.time || 'Gần đây'),
+              location: i.location ? String(i.location) : undefined,
+              severity: (i.severity || 'high') as any,
+              isCloud: true,
+            }))
+          );
+        } else {
+          setIncidents(DEFAULT_INCIDENTS);
+        }
+      } catch (err) {
+        console.error('[GoShip Sync] Error parsing incidents:', err);
       }
 
       // 8. Payout Requests
-      if (cloudPayouts.length > 0) {
-        setPayoutRequests(
-          cloudPayouts.map((p) => ({
-            id: String(p.id || p._docId),
-            docId: p._docId,
-            driverId: String(p.driverId || p.driver_id || ''),
-            driverName: String(p.driverName || p.driver_name || 'Tài xế GoShip'),
-            driverPhone: String(p.driverPhone || p.phone || '---'),
-            amount: Number(p.amount ?? 0),
-            bankName: String(p.bankName || p.bank_name || 'Vietcombank'),
-            accountNo: String(p.accountNo || p.account_no || '---'),
-            holderName: String(p.holderName || p.holder_name || '---'),
-            time: String(p.time || 'Hôm nay'),
-            status: (p.status || 'pending') as any,
-            rejectionReason: p.rejectionReason ? String(p.rejectionReason) : undefined,
-            isCloud: true,
-          }))
-        );
-      } else {
-        setPayoutRequests(DEFAULT_PAYOUTS);
+      try {
+        if (cloudPayouts.length > 0) {
+          setPayoutRequests(
+            cloudPayouts.map((p) => ({
+              id: String(p.id || p._docId),
+              docId: p._docId,
+              driverId: String(p.driverId || p.driver_id || ''),
+              driverName: String(p.driverName || p.driver_name || 'Tài xế GoShip'),
+              driverPhone: String(p.driverPhone || p.phone || '---'),
+              amount: Number(p.amount ?? 0),
+              bankName: String(p.bankName || p.bank_name || 'Vietcombank'),
+              accountNo: String(p.accountNo || p.account_no || '---'),
+              holderName: String(p.holderName || p.holder_name || '---'),
+              time: String(p.time || 'Hôm nay'),
+              status: (p.status || 'pending') as any,
+              rejectionReason: p.rejectionReason ? String(p.rejectionReason) : undefined,
+              isCloud: true,
+            }))
+          );
+        } else {
+          setPayoutRequests(DEFAULT_PAYOUTS);
+        }
+      } catch (err) {
+        console.error('[GoShip Sync] Error parsing payouts:', err);
       }
 
+      setLastSyncTime(new Date().toLocaleTimeString('vi-VN'));
+    } catch (err) {
+      console.error('[GoShip Sync] Top-level sync error:', err);
       setLastSyncTime(new Date().toLocaleTimeString('vi-VN'));
     } finally {
       setIsSyncing(false);
